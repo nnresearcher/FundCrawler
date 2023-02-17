@@ -7,7 +7,7 @@ from abc import ABC
 from multiprocessing import Process, Queue, Event
 from time import time
 
-from FakeUAGetter import my_fake_ua
+from download_fund_info.FakeUAGetter import my_fake_ua
 
 
 class GetPage:
@@ -76,25 +76,36 @@ class GetPageByWebWithAnotherProcessAndMultiThreading(Process, GetPageByWeb):
         return self._result_queue
 
     def get_page_context_and_return_in_queue(self, url, *args):
-        result = super().get_page_context(url, self._timeout, *args)
+        print("xxxxxxxxxx")
+        result = super().get_page_context(url, self._timeout, *args)      
         if result[0] == 'success':
+            # 成功了，进程再增加看看
             self._max_threading_number += 1
             if self._network_health.is_set():
                 self._record_network_down_last_time = None
                 self._network_health.clear()
         else:
-            self._max_threading_number = self._max_threading_number >> 1 if self._max_threading_number > 1 else 1
+            # 失败了降低一下进程数量看看
+            if self._max_threading_number > 1 :
+                self._max_threading_number = self._max_threading_number >> 1
+            else:
+                self._max_threading_number = 1
+            
+            # 如果最大进程数已经降低到最小，并且_network_health没有被置起（说明之前认为网络没问题）
+            # 检查下是不是连续3秒没有成功过，如果是那么就认为网络有问题了，置起网络健康事件
             if self._max_threading_number == 1 and not self._network_health.is_set():
                 if self._record_network_down_last_time is None:
                     self._record_network_down_last_time = time()
                 elif time() - self._record_network_down_last_time > \
                         GetPageByWebWithAnotherProcessAndMultiThreading.SHOW_NETWORK_DOWN_LIMIT_TIME:
                     self._network_health.set()
+                    self._record_network_down_last_time = time()
         self._result_queue.put(result)
 
     def run(self) -> None:
         while True:
-            if self._task_queue.empty() and len(self._threading_pool) == 0:
+            
+            if self._task_queue.empty() and len(self._threading_pool) == 0: 
                 if self._exit_when_task_queue_empty.is_set():
                     self._exit_when_task_queue_empty.clear()
                     break
@@ -108,6 +119,7 @@ class GetPageByWebWithAnotherProcessAndMultiThreading(Process, GetPageByWeb):
                         self._threading_pool.remove(t)
 
                 while self._task_queue.qsize() > 0 and len(self._threading_pool) < self._max_threading_number:
+                    # 那么就从进程中获取一个任务
                     task = self._task_queue.get()
                     t = threading.Thread(target=self.get_page_context_and_return_in_queue,
                                          args=(task[0], *task[1:]))

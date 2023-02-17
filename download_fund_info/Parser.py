@@ -2,8 +2,7 @@
 解析基金网页的内容
 """
 import re
-
-
+from Fund_class import Fund_class
 class ParseBase:
     def get_parse_fund_info(self):
         """
@@ -31,14 +30,13 @@ class ParseDefault(ParseBase):
     """
     # 基金类型的分类
     result_dir = './results/'
-    fund_kind_belong_to_index = ['股票型', '混合型', '债券型', '定开债券', '股票指数', '联接基金', 'QDII-指数', 'QDII',
-                                 '混合-FOF', '货币型', '理财型', '分级杠杆', 'ETF-场内', '债券指数', '股票-FOF']
-    fund_kind_belong_to_guaranteed = ['保本型']
-    fund_kind_belong_to_closed_period = ['固定收益']
+    fund_kind_belong_to_index = Fund_class.fund_kind_belong_to_index
+    fund_kind_belong_to_guaranteed = Fund_class.fund_kind_belong_to_guaranteed
+    fund_kind_belong_to_closed_period = Fund_class.fund_kind_belong_to_closed_period
     # 不同类型基金的解析顺序定义
-    parse_index_for_index_fund = ['近1月', '近1年', '近3月', '近3年', '近6月', '成立来']
-    parse_index_for_guaranteed_fund = ['保本期收益', '近6月', '近1月', '近1年', '近3月', '近3年']
-    parse_index_for_capital_preservation_fund = ['最近约定年化收益率']
+    parse_index_for_index_fund = Fund_class.parse_index_for_index_fund
+    parse_index_for_guaranteed_fund = Fund_class.parse_index_for_guaranteed_fund
+    parse_index_for_capital_preservation_fund = Fund_class.parse_index_for_capital_preservation_fund
 
     def get_parse_fund_info(self):
         fund_web_page_parse = self._parse_fund_info()
@@ -151,19 +149,15 @@ class ParseDefault(ParseBase):
             from os import makedirs
             makedirs(ParseDefault.result_dir)
         # 保存文件的第一行（列索引）
-        write_format_of_index = ['基金名称', '基金代码', '基金规模', '近1月', '近3月', '近6月', '近1年', '近3年', '成立来', '基金经理', '任职时间',
-                                 '任期收益',
-                                 '总任职时间']
-        write_format_of_guaranteed = ['基金名称', '基金代码', '基金规模', '保本期收益', '近1月', '近3月', '近6月', '近1年', '近3年', '基金经理',
-                                      '任职时间',
-                                      '任期收益', '总任职时间']
-        write_format_of_capital_preservation = ['基金名称', '基金代码', '基金规模', '最近约定年化收益率', '基金经理', '任职时间', '任期收益', '总任职时间']
+        write_format_of_index = Fund_class.write_format_of_index
+        write_format_of_guaranteed = Fund_class.write_format_of_guaranteed
+        write_format_of_capital_preservation = Fund_class.write_format_of_capital_preservation
 
         fund_info = yield
         while fund_info is not None:
             if fund_info.fund_kind not in filename_handle.keys():
                 # 此基金类型的文件尚未打开过
-                f = open(ParseDefault.result_dir + fund_info.fund_kind + '.csv', open_mode)
+                f = open(ParseDefault.result_dir + fund_info.fund_kind + '.csv', open_mode, encoding='utf-8')
                 filename_handle[fund_info.fund_kind] = f
                 if fund_info.fund_kind in ParseDefault.fund_kind_belong_to_index:
                     header = ','.join(write_format_of_index) + '\n'
@@ -182,7 +176,7 @@ class ParseDefault(ParseBase):
                 index = write_format_of_guaranteed
             else:
                 index = write_format_of_capital_preservation
-            f.write(fund_info.get_info(index))
+            f.write(fund_info.get_info(index).encode('utf-8').decode('utf-8'))
             f.write('\n')
             fund_info = yield
 
